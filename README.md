@@ -3,7 +3,7 @@
 Author: Wiktor Matyszkiewicz
 Last update: 27.02.2025
 
-Documentation for FastMTT implementation in python. It's performance is of the order of C++ version, but probably worse (one should expect around 3.5 times slower calculations).
+Documentation for FastMTT implementation in python. It's performance is of the order of C++ version, (one should expect around 3.5 times slower calculations with "pure" version and a similar performance with batch processing).
 
 Presentation: https://indico.cern.ch/event/1467095/
 
