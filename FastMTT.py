@@ -10,6 +10,7 @@ import Likelihood
 
 ###Main reference: https://github.com/SVfit/ClassicSVfit/blob/fastMTT_2024/src/FastMTT.cc ###
 
+HIGGS_MASS = 125.0 #GeV
 
 ElectronMass = physical_constants['electron mass energy equivalent in MeV'][0]/1000 #MeV -> GeV
 MuonMass = physical_constants['muon mass energy equivalent in MeV'][0]/1000 #MeV -> GeV
@@ -88,22 +89,30 @@ class FastMTT:
 
         self.scan()
         
-        self.tau1P4 = self.p4_Lepton1*(1/self.BestX[:, np.newaxis, 0])
-        self.tau2P4 = self.p4_Lepton2*(1/self.BestX[:, np.newaxis, 1])
+        self.tau1P4 = self.p4_Lepton1*(1/self.BestX1[:, np.newaxis])
+        self.tau2P4 = self.p4_Lepton2*(1/self.BestX2[:, np.newaxis])
 
-        if self.myLikelihood.enable_window:
-            mvis = InvariantMass(self.p4_Lepton1 + self.p4_Lepton2)
-            mask = mvis > self.myLikelihood.window[1]
-            self.tau1P4[mask] = self.p4_Lepton1[mask]
-            self.tau2P4[mask] = self.p4_Lepton2[mask]
+        self.mvis = InvariantMass(self.p4_Lepton1 + self.p4_Lepton2)
+        mask = self.mvis > self.myLikelihood.window[1]
+        #self.tau1P4[mask] = self.p4_Lepton1[mask]
+        #self.tau2P4[mask] = self.p4_Lepton2[mask]
 
         self.bestP4 = self.tau1P4 + self.tau2P4
         self.mass = InvariantMass(self.bestP4)
+        bad_events = 0
+        good_events = 0
+        for event,mass in enumerate(self.mass):
+            if np.unique(self.lh[event]).size == 1:
+                if mass < 127:
+                    good_events += 1
+                    print("Error!")
+                if mass > 127:
+                    bad_events += 1
+                    print("Preety good!")
+                    #print(f"Event {event}: ", self.mvis[event], mass, self.BestX1[event], self.BestX2[event])
+                    #print("Lh grid: ", self.lh[event])
+        print(f"Good events: {good_events}, Bad events: {bad_events}")
         self.pt = pT(self.bestP4)
-
-        if self.myLikelihood.enable_window:
-            self.mass[(self.mass < self.myLikelihood.window[0])] = self.myLikelihood.window[0]
-            self.mass[(self.mass > self.myLikelihood.window[1])] = self.myLikelihood.window[1]
 
         self.tau1pt = np.sqrt(self.tau1P4[..., 0]**2 + self.tau1P4[..., 1]**2)
         self.tau2pt = np.sqrt(self.tau2P4[..., 0]**2 + self.tau2P4[..., 1]**2)
@@ -175,18 +184,24 @@ class FastMTT:
         nGridPoints = 100
         gridFactor = 1.0/nGridPoints
 
-        X1 = np.arange(1, nGridPoints+1) * gridFactor
-        X2 = np.arange(1, nGridPoints+1) * gridFactor
+        #X1 = np.arange(1, nGridPoints+1) * gridFactor
+
+        self.X2 = np.arange(1, nGridPoints+1) * gridFactor
+        self.lh = self.myLikelihood.value(self.X2)
+
+        #X2 = np.arange(1, nGridPoints+1) * gridFactor
 
         # Cartesian product
-        self.pairs = np.column_stack((np.repeat(X1, len(X2)),
-                                 np.tile(X2, len(X1))))
+        #self.pairs = np.column_stack((np.repeat(X1, len(X2)),
+        #                         np.tile(X2, len(X1))))
         
-        self.lh = self.myLikelihood.value(self.pairs)
+        self.lh = self.myLikelihood.value(self.X2)
 
         minimum = np.argmin(self.lh, axis=1)
 
-        self.BestX = self.pairs[minimum]
+        self.BestX2 = self.X2[minimum]
+        self.BestX1 = self.myLikelihood.mvis**2 / self.BestX2 / HIGGS_MASS**2
+
         self.BestLikelihood = self.lh[np.arange(self.lh.shape[0]), minimum]
 
         ### USER INTERFACE AND ADDITIONAL COMPONENTS ###
@@ -201,12 +216,12 @@ class FastMTT:
         ###
 
         #Plotting likelihoods
-        if self.WhichLikelihoodPlot != -1:
+        '''if self.WhichLikelihoodPlot != -1:
             threshold=self.BestLikelihood[self.WhichLikelihoodPlot]/np.exp(chi_square/2)
             self.plot_likelihood(X1, X2, event_number = self.WhichLikelihoodPlot, threshold=threshold)
 
         if self.CalculateUncertainties == True:
-            self.contour_uncertainties(X1, X2, chi_square)
+            self.contour_uncertainties(X1, X2, chi_square)'''
 
         #Code for minimalizing function with scipy:
 

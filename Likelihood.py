@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.constants import physical_constants
 
+HIGGS_MASS = 125.0 #GeV
+
 def InvariantMass(p4):
     metric = np.array([-1,-1,-1,1])
     p4_square = p4*(metric*p4)
@@ -255,14 +257,19 @@ class Likelihood:
         pull2[np.broadcast_to(mask[:, np.newaxis], pull2.shape)] = 0.0
         return constMET[:, np.newaxis]*np.exp(-0.5*pull2)
     
-    def value(self, x):
+    def value(self, X2):
         
         x1Min = np.minimum(1.0, self.mVisOverTauSquare1)
         x2Min = np.minimum(1.0, self.mVisOverTauSquare2)
 
-        mask = (x[:, 0] < x1Min[:, np.newaxis]) | (x[:, 1] < x2Min[:, np.newaxis])
+        X1 = self.mvis[:, np.newaxis]**2/HIGGS_MASS**2/X2[np.newaxis, :]
+
+        X2_expanded = np.tile(X2, (X1.shape[0], 1))[:, :, np.newaxis]
+        x = np.concatenate((X1[:, :, np.newaxis], X2_expanded), axis=2)
+
+        mask = (x[:, :, 0] < x1Min[:, np.newaxis]) | (x[:, :, 1] < x2Min[:, np.newaxis])
         
-        testP4 = self.leg1P4[:, np.newaxis, :] / x[:, 0][:, np.newaxis] + self.leg2P4[:, np.newaxis, :] / x[:, 1][:, np.newaxis]
+        testP4 = self.leg1P4[:, np.newaxis, :] / x[:, :, 0][:, :, np.newaxis] + self.leg2P4[:, np.newaxis, :] / x[:, :, 1][:, :, np.newaxis]
 
         testMET = testP4 - self.leg1P4[:, np.newaxis, :] - self.leg2P4[:, np.newaxis, :]
 

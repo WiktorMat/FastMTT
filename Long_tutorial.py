@@ -30,17 +30,21 @@ def process_events_csv(measuredTauLeptons, measuredMETx, measuredMETy, covMET, H
     print('Input shapes:', measuredTauLeptons.shape, measuredMETx.shape, measuredMETy.shape, covMET.shape)
     fMTT.run(measuredTauLeptons, measuredMETx, measuredMETy, covMET)
     mFast = fMTT.mass
+    mvis = fMTT.myLikelihood.mvis
     print(mFast.shape)
 
-    fastMTT_one_sigma = fMTT.one_sigma
     ptFast = fMTT.pt
     print("FastMTT mass mean:", np.mean(mFast))
-    print("FastMTT mass 1 sigma:", np.mean(fastMTT_one_sigma))
 
     over_range = np.sum((mFast > fMTT.myLikelihood.window[1]))
     below_range = np.sum((mFast < fMTT.myLikelihood.window[0]))
     print(f"Number of cases where Higgs is below {fMTT.myLikelihood.window[0]} GeV: {below_range}")
     print(f"Number of cases where Higgs is above {fMTT.myLikelihood.window[1]} GeV: {over_range}")
+    
+    over_range = np.sum((mvis > fMTT.myLikelihood.window[1]))
+    below_range = np.sum((mvis < fMTT.myLikelihood.window[0]))
+    print(f"Number of cases where visible mass is below {fMTT.myLikelihood.window[0]} GeV: {below_range}")
+    print(f"Number of cases where visible mass is above {fMTT.myLikelihood.window[1]} GeV: {over_range}")
     
     print('*****\nFastMTT pt comparison\n*****')
     print('FastMTT pt shape:', ptFast.shape)
