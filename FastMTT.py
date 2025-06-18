@@ -28,7 +28,7 @@ def pT(aP4):
     return np.sqrt(aP4[..., 0]**2 + aP4[..., 1]**2)
 
 class FastMTT:
-    def __init__(self, calculate_uncertainties = False):
+    def __init__(self):
         self.myLikelihood = Likelihood.Likelihood()
         self.BestLikelihood = 0.0
         self.BestX = np.array([0.0, 0.0])
@@ -41,7 +41,7 @@ class FastMTT:
         #It produces long tails, but apart from that calculates uncertainties event by event quite ok ~ after some cuts results are aprox. Gaussian
         #A bit time consuming -- doubles the time of calculation -- so it is disabled by default
 
-        self.CalculateUncertainties = calculate_uncertainties
+        self.CalculateUncertainties = False
         self.one_sigma = 0.0
 
         #Number of event for which likelihood plot will be shown.
@@ -93,30 +93,21 @@ class FastMTT:
         self.tau2P4 = self.p4_Lepton2*(1/self.BestX2[:, np.newaxis])
 
         self.mvis = InvariantMass(self.p4_Lepton1 + self.p4_Lepton2)
-        mask = self.mvis > self.myLikelihood.window[1]
-        #self.tau1P4[mask] = self.p4_Lepton1[mask]
-        #self.tau2P4[mask] = self.p4_Lepton2[mask]
 
         self.bestP4 = self.tau1P4 + self.tau2P4
         self.mass = InvariantMass(self.bestP4)
-        bad_events = 0
-        good_events = 0
-        for event,mass in enumerate(self.mass):
-            if np.unique(self.lh[event]).size == 1:
-                if mass < 127:
-                    good_events += 1
-                    print("Error!")
-                if mass > 127:
-                    bad_events += 1
-                    print("Preety good!")
-                    #print(f"Event {event}: ", self.mvis[event], mass, self.BestX1[event], self.BestX2[event])
-                    #print("Lh grid: ", self.lh[event])
-        print(f"Good events: {good_events}, Bad events: {bad_events}")
         self.pt = pT(self.bestP4)
 
         self.tau1pt = np.sqrt(self.tau1P4[..., 0]**2 + self.tau1P4[..., 1]**2)
         self.tau2pt = np.sqrt(self.tau2P4[..., 0]**2 + self.tau2P4[..., 1]**2)
 
+        if self.CalculateUncertainties:
+            self.tau2P4_min = self.p4_Lepton2*(1/self.X2_min[:, np.newaxis])
+            self.tau2P4_max = self.p4_Lepton2*(1/self.X2_max[:, np.newaxis])
+            
+            self.tau2pt_min = np.sqrt(self.tau2P4_min[..., 0]**2 + self.tau2P4_min[..., 1]**2)
+            self.tau2pt_max = np.sqrt(self.tau2P4_max[..., 0]**2 + self.tau2P4_max[..., 1]**2)
+        
         ##############################################
 
         #Time calculation part:
@@ -182,12 +173,11 @@ class FastMTT:
     def scan(self):
         
         nGridPoints = 100
-        gridFactor = 1.0/nGridPoints
+        self.gridFactor = 1.0/nGridPoints
 
         #X1 = np.arange(1, nGridPoints+1) * gridFactor
 
-        self.X2 = np.arange(1, nGridPoints+1) * gridFactor
-        self.lh = self.myLikelihood.value(self.X2)
+        self.X2 = np.arange(1, nGridPoints+1) * self.gridFactor
 
         #X2 = np.arange(1, nGridPoints+1) * gridFactor
 
@@ -206,7 +196,13 @@ class FastMTT:
 
         ### USER INTERFACE AND ADDITIONAL COMPONENTS ###
 
-        chi_square = 2.3
+        if self.CalculateUncertainties:
+            chi_square_value = 2.3
+
+            self.contour_uncertainties(chi_square = chi_square_value)
+
+        #self.X1_max = self.myLikelihood.mvis**2 / self.X2_min / HIGGS_MASS**2
+        #self.X1_min = self.myLikelihood.mvis**2 / self.X2_max / HIGGS_MASS**2
 
         ###
         # 1 sigma = 2.3
@@ -292,33 +288,17 @@ class FastMTT:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         plt.savefig(file_path, format='png')
         plt.close()
-
-    def evaluate_mass(self, x):
-        tau1P4 = self.p4_Lepton1[:, np.newaxis, np.newaxis, :]*(1/x[np.newaxis, :, :, np.newaxis, 0])
-        tau2P4 = self.p4_Lepton2[:, np.newaxis, np.newaxis, :]*(1/x[np.newaxis, :, :, np.newaxis, 1])
-        bestP4 = tau1P4 + tau2P4
-        mass = InvariantMass(bestP4)
-        return mass
     
-    def contour_uncertainties(self, X1, X2, chi_square = 2.3):
+    def contour_uncertainties(self, chi_square = 2.3):
         threshold = self.BestLikelihood/np.exp(chi_square/2)
 
-        nGridPoints = np.shape(X1)[0]
-        nEvents = np.shape(self.lh)[0]
+        mask = (self.lh < threshold[:, np.newaxis])
 
-        lh_grid = self.lh.reshape(nEvents, nGridPoints, nGridPoints)
-        pairs = self.pairs.reshape(nGridPoints, nGridPoints, 2)
-        mask = (lh_grid < threshold[:, np.newaxis, np.newaxis])
+        low = np.roll(mask, shift=-1, axis = 1)
+        up = np.roll(mask, shift=1, axis=1)
+        boundary_mask = mask & ~(up & low)
 
-        up = np.roll(mask, shift=-1, axis=1)
-        down = np.roll(mask, shift=1, axis=1)
-        left = np.roll(mask, shift=-1, axis=2)
-        right = np.roll(mask, shift=1, axis=2)
-        boundary_mask = mask & ~(up & down & left & right)
-        
-        masses = self.evaluate_mass(pairs)
-        masses = np.where(boundary_mask, masses, np.nan)
-        self.max_masses = np.nanmax(masses, axis=(1, 2))
-        self.min_masses = np.nanmin(masses, axis=(1, 2))
+        event_indices, grid_indices = np.where(boundary_mask)
 
-        self.one_sigma = (self.max_masses - self.min_masses)/2
+        self.X2_min = grid_indices[::2]*self.gridFactor
+        self.X2_max = grid_indices[1::2]*self.gridFactor
