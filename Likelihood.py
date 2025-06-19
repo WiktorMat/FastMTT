@@ -103,29 +103,33 @@ class Likelihood:
         self.mVisOverTauSquare1 = (self.mvisleg1/self.mTau)**2
         self.mVisOverTauSquare2 = (self.mvisleg2/self.mTau)**2
 
+        #Mask for 1D likelihood == zero everywhere
+        self.ZeroLikelihood_mask = np.ones(self.mvis.shape[0], dtype=bool)
+
     def massLikelihood(self, m):
         mScaled = m*self.coeff2
 
-        mask1 = (mScaled < self.mvis[:, np.newaxis])
         
-        mVS2 = (self.mvis[:, np.newaxis]/mScaled)**2
+        mask1 = (mScaled < self.mvis[self.ZeroLikelihood_mask, np.newaxis])
+
+        mVS2 = (self.mvis[self.ZeroLikelihood_mask, np.newaxis]/mScaled)**2
         
-        x1Min = np.minimum(1.0, self.mVisOverTauSquare1)
-        x2Min = np.maximum(self.mVisOverTauSquare2[:, np.newaxis], mVS2)
+        x1Min = np.minimum(1.0, self.mVisOverTauSquare1[self.ZeroLikelihood_mask])
+        x2Min = np.maximum(self.mVisOverTauSquare2[self.ZeroLikelihood_mask, np.newaxis], mVS2)
         x2Max = np.minimum(1.0, mVS2/x1Min[:, np.newaxis])
         
         mask2 = (x2Min > x2Max)
-        
-        jacobiFactor = 2.0*self.mvis[:, np.newaxis]**2*mScaled**(-self.coeff1)
+
+        jacobiFactor = 2.0*self.mvis[self.ZeroLikelihood_mask, np.newaxis]**2*mScaled**(-self.coeff1)
         x2IntegralTerm = np.log(x2Max/x2Min)
 
         value = 0.0
         value += x2IntegralTerm
 
-        HadDecay1 = np.broadcast_to((self.leg1DecayType != 1)[:, np.newaxis], value.shape)
+        HadDecay1 = np.broadcast_to((self.leg1DecayType != 1)[self.ZeroLikelihood_mask , np.newaxis], value.shape)
         value += HadDecay1 * mVS2 * (1 / x2Max - 1 / x2Min)
 
-        HadDecay2 = np.broadcast_to((self.leg2DecayType != 1)[:, np.newaxis], value.shape)
+        HadDecay2 = np.broadcast_to((self.leg2DecayType != 1)[self.ZeroLikelihood_mask, np.newaxis], value.shape)
         value += HadDecay2 * (mVS2*x2IntegralTerm - (x2Max - x2Min))
 
         value[mask1 | mask2] = 0.0
@@ -257,7 +261,7 @@ class Likelihood:
         pull2[np.broadcast_to(mask[:, np.newaxis], pull2.shape)] = 0.0
         return constMET[:, np.newaxis]*np.exp(-0.5*pull2)
     
-    def value(self, X2):
+    def value_1D(self, X2):
         
         x1Min = np.minimum(1.0, self.mVisOverTauSquare1)
         x2Min = np.minimum(1.0, self.mVisOverTauSquare2)
@@ -277,6 +281,50 @@ class Likelihood:
 
         if self.enable_MET:
             value *= self.metTF(self.recoMET, testMET, self.covMET)
+        
+        if self.enable_mass:
+            value *= self.massLikelihood(InvariantMass(testP4))
+
+        #Experimental components
+        #Not  introduced yet in official version
+        if self.enable_px:
+            value *= self.ptLikelihood(testP4[:, :, 0], 0)
+        if self.enable_py:
+            value *= self.ptLikelihood(testP4[:, :, 1], 1)
+        if self.enable_mass_constraint:
+            value *= self.mass_constraint(InvariantMass(testP4))
+        
+        if not self.enable_window: #default
+            value[mask] = 0.000001
+        else:
+            value[~self.Window(InvariantMass(testP4))] = 1.0
+
+        return value
+    
+    def value_2D(self, x):
+        
+        print("Shape of x: ", x.shape)
+        x1Min = np.minimum(1.0, self.mVisOverTauSquare1[self.ZeroLikelihood_mask])
+        print("Shape of x1Min: ", x1Min.shape)
+        print("Shape of mVisOverTauSquare1: ", self.mVisOverTauSquare1.shape)
+        print("Shape of mVisOverTauSquare2: ", self.mVisOverTauSquare2.shape)
+
+        x2Min = np.minimum(1.0, self.mVisOverTauSquare2[self.ZeroLikelihood_mask])
+
+        mask = (x[:, 0] < x1Min[:, np.newaxis]) | (x[:, 1] < x2Min[:, np.newaxis])
+        
+        testP4 = self.leg1P4[self.ZeroLikelihood_mask, np.newaxis, :] / x[:, 0][:, np.newaxis] + self.leg2P4[self.ZeroLikelihood_mask, np.newaxis, :] / x[:, 1][:, np.newaxis]
+        print("Shape of testP4: ", testP4.shape)
+        print("Shape of leg1P4: ", self.leg1P4.shape)
+        print("Shape of leg2P4: ", self.leg2P4.shape)
+
+        testMET = testP4 - self.leg1P4[self.ZeroLikelihood_mask, np.newaxis, :] - self.leg2P4[self.ZeroLikelihood_mask, np.newaxis, :]
+        print("Shape of testMET: ", testMET.shape)
+
+        value = np.full(testMET.shape[:2], -1.0) #Negative likelihood
+
+        if self.enable_MET:
+            value *= self.metTF(self.recoMET[self.ZeroLikelihood_mask], testMET, self.covMET[self.ZeroLikelihood_mask])
         
         if self.enable_mass:
             value *= self.massLikelihood(InvariantMass(testP4))

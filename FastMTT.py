@@ -87,7 +87,22 @@ class FastMTT:
 
         self.myLikelihood.setLeptonInputs(self.p4_Lepton1, self.p4_Lepton2, aLepton1[:, 0], aLepton2[:, 0], aLepton1[:, 5], aLepton2[:, 5])
 
-        self.scan()
+        #Execute likelihood scan
+
+        self.scan_1D()
+
+        #Temporary bug fix
+
+        self.tau2P4 = self.p4_Lepton2*(1/self.BestX2[:, np.newaxis])
+        self.tau2pt = np.sqrt(self.tau2P4[..., 0]**2 + self.tau2P4[..., 1]**2)
+        self.ZeroLikelihood_mask = (self.tau2pt > 100)
+
+        #num_unique = np.apply_along_axis(lambda x: np.unique(x).size, axis=1, arr=self.lh)
+        #self.ZeroLikelihood_mask = num_unique < 5
+        self.myLikelihood.ZeroLikelihood_mask = self.ZeroLikelihood_mask
+        self.scan_2D()
+
+        #Output preparation
         
         self.tau1P4 = self.p4_Lepton1*(1/self.BestX1[:, np.newaxis])
         self.tau2P4 = self.p4_Lepton2*(1/self.BestX2[:, np.newaxis])
@@ -100,6 +115,8 @@ class FastMTT:
 
         self.tau1pt = np.sqrt(self.tau1P4[..., 0]**2 + self.tau1P4[..., 1]**2)
         self.tau2pt = np.sqrt(self.tau2P4[..., 0]**2 + self.tau2P4[..., 1]**2)
+
+        #Optional (not ready yet)
 
         if self.CalculateUncertainties:
             self.tau2P4_min = self.p4_Lepton2*(1/self.X2_min[:, np.newaxis])
@@ -170,22 +187,14 @@ class FastMTT:
 
         return aLepton1
     
-    def scan(self):
+    def scan_1D(self):
         
         nGridPoints = 100
         self.gridFactor = 1.0/nGridPoints
 
-        #X1 = np.arange(1, nGridPoints+1) * gridFactor
-
         self.X2 = np.arange(1, nGridPoints+1) * self.gridFactor
 
-        #X2 = np.arange(1, nGridPoints+1) * gridFactor
-
-        # Cartesian product
-        #self.pairs = np.column_stack((np.repeat(X1, len(X2)),
-        #                         np.tile(X2, len(X1))))
-        
-        self.lh = self.myLikelihood.value(self.X2)
+        self.lh = self.myLikelihood.value_1D(self.X2)
 
         minimum = np.argmin(self.lh, axis=1)
 
@@ -211,28 +220,28 @@ class FastMTT:
         # 5 sigma = 28.7
         ###
 
-        #Plotting likelihoods
-        '''if self.WhichLikelihoodPlot != -1:
-            threshold=self.BestLikelihood[self.WhichLikelihoodPlot]/np.exp(chi_square/2)
-            self.plot_likelihood(X1, X2, event_number = self.WhichLikelihoodPlot, threshold=threshold)
-
-        if self.CalculateUncertainties == True:
-            self.contour_uncertainties(X1, X2, chi_square)'''
-
-        #Code for minimalizing function with scipy:
-
-        '''initial_guess = np.array([0.5, 0.5])
-        result = minimize(self.myLikelihood.value, initial_guess, method='BFGS')
-        self.BestX = result.x
-        self.BestLikelihood = result.fun'''
-        
-        #Faster than grid search in pure python
-        #Slower than grid search in numpy with vectorization and broadcasting
-        #Potentially one can replace it with jax and/or numba
-
-        #self.check_likelihood()
-
         return
+    
+    def scan_2D(self):
+        
+        nGridPoints = 100
+        gridFactor = 1.0/nGridPoints
+
+        X1 = np.arange(1, nGridPoints+1) * gridFactor
+        X2 = np.arange(1, nGridPoints+1) * gridFactor
+
+        # Cartesian product
+        self.pairs = np.column_stack((np.repeat(X1, len(X2)),
+                                 np.tile(X2, len(X1))))
+
+        self.lh = self.myLikelihood.value_2D(self.pairs)
+
+        minimum = np.argmin(self.lh, axis=1)
+
+        self.BestX = self.pairs[minimum]
+        self.BestX1[self.ZeroLikelihood_mask] = self.BestX[:, 0]
+        self.BestX2[self.ZeroLikelihood_mask] = self.BestX[:, 1]
+        self.BestLikelihood = self.lh[np.arange(self.lh.shape[0]), minimum]
     
     def plot_likelihood_subplot(self, ax, X1, X2, lh_grid, maximum_likelihood, threshold=None):
 
