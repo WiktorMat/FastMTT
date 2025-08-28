@@ -18,7 +18,7 @@ git clone https://github.com/<your-username>/FastMTT.git
 cd FastMTT
 ```
 
-No special installation is required apart from standard Python libraries (see `requirements.txt`).
+No special installation is required apart from standard Python libraries (see [requirements.txt](./requirements.txt)).
 
 ## Usage
 
@@ -70,4 +70,4 @@ batch_processing.py will calculate batch of events using multiprocessing regime.
 
 ## Documentation
 
-For full details on inputs, batching, additional options, and likelihood components, see USAGE.md.
+For full details on inputs, batching, additional options, and likelihood components, see [DOCUMENTATION.md](./DOCUMENTATION.md).
