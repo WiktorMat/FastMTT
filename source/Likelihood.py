@@ -67,15 +67,11 @@ class Likelihood:
     def setWindow(self, window):
         self.window = window
 
-    def enableLikelihoodComponents(self, MET = None, mass = None, px = None, py = None, mass_constraint = None, window = None):  #All Boolean
+    def enableLikelihoodComponents(self, MET = None, mass = None, mass_constraint = None, window = None):  #All Boolean
         if MET is not None:
             self.enable_MET = MET
         if mass is not None:
             self.enable_mass = mass
-        if px is not None:
-            self.enable_px = px
-        if py is not None:
-            self.enable_py = py
         if mass_constraint is not None:
             self.enable_mass_constraint = mass_constraint
         if window is not None:
@@ -132,11 +128,6 @@ class Likelihood:
 
         return value
 
-    ###WORK IN PROGRESS###
-    #This experimental component is still to be tested (and set to false by default)#
-    #It will better constraint the likelihood function to Z0/H mass
-    #(in order for better momenta estimation)
-
     def mass_constraint(self, invariant_mass):
 
         Gauss_factor = np.exp(-(invariant_mass - self.constraint_mean)**2/(2*self.constraint_sigma**2))
@@ -146,93 +137,6 @@ class Likelihood:
     def Window(self, invariant_mass):
         mask = (invariant_mass > self.window[0]) & (invariant_mass < self.window[1])
         return mask
-    
-
-    #This is experimental part and by default not used by main code
-
-    def ptLikelihood(self, pTTauTau, type):
-
-        mask1 = (np.abs(pTTauTau)<0.5)
-
-        if type == 0:
-            pT1 = self.leg1P4[:, 0][:, np.newaxis] * np.ones((1, pTTauTau.shape[1]))
-            pT2 = self.leg2P4[:, 0][:, np.newaxis] * np.ones((1, pTTauTau.shape[1]))
-        elif type == 1:
-            pT1 = self.leg1P4[:, 1][:, np.newaxis] * np.ones((1, pTTauTau.shape[1]))
-            pT2 = self.leg2P4[:, 1][:, np.newaxis] * np.ones((1, pTTauTau.shape[1]))
-        elif type == 2:
-            pT1 = self.leg1P4[:, 2][:, np.newaxis] * np.ones((1, pTTauTau.shape[1]))
-            pT2 = self.leg2P4[:, 2][:, np.newaxis] * np.ones((1, pTTauTau.shape[1]))
-
-        x1Min = np.minimum(1.0, self.mVisOverTauSquare1)[:, np.newaxis] * np.ones((1, pTTauTau.shape[1]))
-        x2Min = np.minimum(1.0, self.mVisOverTauSquare2)[:, np.newaxis] * np.ones((1, pTTauTau.shape[1]))
-
-        x1Max = np.ones(pTTauTau.shape)
-        x2Max = np.ones(pTTauTau.shape)
-
-        a_x2 = x1Min *pT2/(x1Min*pTTauTau - pT1)
-        b_x2 = x1Max*pT2/(x1Max*pTTauTau - pT1)
-
-        x1_singularity = pT1/pTTauTau
-        x2_vs_x1_singularity = (x1_singularity>0.0) & (x1_singularity<1.0)
-
-        momentum_sign = (-pT2*pT1<0)
-
-        x2Min = np.where(momentum_sign, np.maximum(x2Min, b_x2), x2Min)
-        x2Max = np.where(momentum_sign, np.minimum(x2Max, a_x2), x2Max)
-        x2Max = np.where((momentum_sign) & (x2_vs_x1_singularity) & (x2Max<0), 1.0, x2Max)
-        x2Min = np.where(~momentum_sign, np.maximum(x2Min, a_x2), x2Min)
-        x2Max = np.where(~momentum_sign, np.minimum(x2Max, b_x2), x2Max)
-        x2Max = np.where((~momentum_sign) & (x2_vs_x1_singularity) & (x2Max<0), 1.0, x2Max)
-
-        x2Min[x2Min<0] = 0.0
-        
-        mask2 = (x2Min > x2Max)
-
-        HadDecay1 = np.broadcast_to((self.leg1DecayType != 1)[:, np.newaxis], pTTauTau.shape)
-        HadDecay2 = np.broadcast_to((self.leg2DecayType != 1)[:, np.newaxis], pTTauTau.shape)
-        
-        mNuNuIntegral = np.zeros((pTTauTau.shape))
-        x2 = np.minimum(1.0, x2Max)
-
-        term1 = pT2 - pTTauTau*x2
-        log_term1 = np.log(np.abs(term1))
-
-        integralMax = pT1*(pTTauTau*x2 + pT2**2/term1 + 2*pT2*log_term1)/pTTauTau**3
-
-        ###MOST CONSUMING PART 1###
-
-        mNuNuIntegral += HadDecay1 * (-pT1**2*(2*pTTauTau*x2+pT2**2*(5*pT2-6*pTTauTau*x2)/term1**2 + 6*pT2*log_term1)/(2*pTTauTau**4))
-        mNuNuIntegral += HadDecay2 * (-pT1/(2*pTTauTau**5)*(2*pT2*pTTauTau*(-3*pT1 + 2*pTTauTau)*x2 + pTTauTau**2*(-pT1 + pTTauTau)*x2**2 + (pT2**4*pT1)/term1**2 + 2*pT2**3*(-4*pT1 + pTTauTau)/term1 + 6*pT2**2*(-2*pT1 + pTTauTau)*log_term1))
-
-        integralMax += mNuNuIntegral
-
-        ###END OF MOST CONSUMING PART 1###
-
-        mNuNuIntegral = np.zeros((pTTauTau.shape))
-
-        x2 = x2Min
-        term2 = pT2 - pTTauTau*x2
-        log_term2 = np.log(np.abs(term2))
-
-        integralMin = pT1*(pTTauTau*x2+pT2**2/term2+2*pT2*log_term2)/pTTauTau**3
-
-        ###MOST CONSUMING PART 2###
-        
-        mNuNuIntegral += HadDecay1 * (-pT1**2*(2*pTTauTau*x2+pT2**2*(5*pT2-6*pTTauTau*x2)/term2**2+6*pT2*log_term2)/(2*pTTauTau**4))
-        mNuNuIntegral += HadDecay2 * (-pT1/(2*pTTauTau**5)*(2*pT2*pTTauTau*(-3*pT1 + 2*pTTauTau)*x2 + pTTauTau**2*(-pT1 + pTTauTau)*x2**2 + (pT2**4*pT1)/term2**2 + 2*pT2**3*(-4*pT1 + pTTauTau)/term2 + 6*pT2**2*(-2*pT1 + pTTauTau)*log_term2))
-        
-        integralMin += mNuNuIntegral
-
-        ###END OF MOST CONSUMING PART 2###
-
-        value = integralMax - integralMin
-
-        value[mask1 | mask2] = 0.0
-
-        #value*=1E4
-
-        return np.abs(value)
     
     def metTF(self, metP4, nuP4, covMET):
         aMETx = metP4[..., 0]
@@ -274,12 +178,6 @@ class Likelihood:
         if self.enable_mass:
             value *= self.massLikelihood(InvariantMass(testP4))
 
-        #Experimental components
-        #Not  introduced yet in official version
-        if self.enable_px:
-            value *= self.ptLikelihood(testP4[:, :, 0], 0)
-        if self.enable_py:
-            value *= self.ptLikelihood(testP4[:, :, 1], 1)
         if self.enable_mass_constraint:
             value *= self.mass_constraint(InvariantMass(testP4))
         

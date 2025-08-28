@@ -1,12 +1,18 @@
 import numpy as np
-#import jax.numpy as jnp
 import pandas as pd
 import matplotlib.pyplot as plt
-import FastMTT
 import argparse
-import os
 from scipy.stats import norm
-#import dask.array as da
+
+#Importing source code from FastMTT
+import sys
+import os
+fastmtt_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..',  'source'))
+if fastmtt_path not in sys.path:
+    sys.path.insert(0, fastmtt_path)
+
+import FastMTT
+from FastMTT_utils import load_input_file
 
 def process_events_csv(measuredTauLeptons, measuredMETx, measuredMETy, covMET, Higgs_mass, Higgs_pt):
 
@@ -59,27 +65,6 @@ def process_events_csv(measuredTauLeptons, measuredMETx, measuredMETy, covMET, H
     pT_resolution_plot(ptFast, Higgs_pt)
 
     uncertainty_test(Higgs_mass, fMTT)
-
-def load_events_csv(csv_data):
-
-    df = pd.read_csv(csv_data, nrows = 1000)
-
-    event_df = df[['H.m', 'H.pt', 'METx', 'METy', 'covXX', 'covXY', 'covYY', 'dm1', 'pt1', 'eta1', 'phi1', 'mass1', 'type1', 'dm2', 'pt2', 'eta2', 'phi2', 'mass2', 'type2']].copy()
-
-    Higgs_mass = event_df.pop('H.m').to_numpy()
-    Higgs_pt = event_df.pop('H.pt').to_numpy()
-    METx = event_df.pop('METx').to_numpy()
-    METy = event_df.pop('METy').to_numpy()
-    metcov = event_df[['covXX', 'covXY', 'covXY', 'covYY']].to_numpy()
-    event_df.drop(columns=['covXX', 'covXY', 'covYY'], inplace=True)
-    metcov = np.reshape(metcov, (len(metcov), 2, 2))
-
-    print('pandas dataframe:\n', event_df)
-
-    events = event_df.to_numpy()
-    events = np.reshape(events, (len(events), 2, 6))
-
-    return {"measuredTauLeptons": events, "measuredMETx": METx, "measuredMETy": METy, "covMET": metcov, "Higgs_mass": Higgs_mass, "Higgs_pt": Higgs_pt}
 
 def Higgs_plot(mFast, output_path = 'images/fastMTT/fastMTT_masses.png'):
 
@@ -169,5 +154,5 @@ if __name__ == "__main__":
     parser.add_argument("file_path", type=str, help="Path to the CSV file.")
     args = parser.parse_args()
 
-    csv_data = load_events_csv(args.file_path)
+    csv_data = load_input_file(args.file_path)
     process_events_csv(**csv_data)

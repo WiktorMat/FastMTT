@@ -1,39 +1,34 @@
 # FastMTT
 
 Author: Wiktor Matyszkiewicz
-Last update: 27.02.2025
+Last update: 28.08.2025
 
-Documentation for FastMTT implementation in python. It's performance is of the order of C++ version, (one should expect around 3.5 times slower calculations with "pure" version and a similar performance with batch processing).
+Following repository contains a python implementation of the FastMTT algorithm, used to reconstruct invariant mass of di-tau system at high speed (around 1s for 1000 events on modern computer). For C++ version refer to: https://github.com/SVfit/ClassicSVfit/tree/fastMTT_2024.
 
-Presentation: https://indico.cern.ch/event/1467095/
+Project structure:  
+- **FastMTT.py** – high-level implementation of the reconstruction algorithm (grid scan, maximum likelihood selection, reconstruction of tau four-vectors).  
+- **Likelihood.py** – implementation of the likelihood function, with different components: MET, tau-mass constraint, optionals.
 
-Version is standalone and do not need any installations apart from standard libraries (numpy, pandas, os, scipy, matplotlib, pyplot, argparse).
+## Installation
 
-To see example usage of the code, you can see Short_tutorial.py file with batch division. You can also try Long_tutorial.py, containing example of how to use FastMTT components. You can execute it with:
-
-```python
-python3 FastMTT_test.py example_data.csv
+Clone the repository:
+```
+bash
+git clone https://github.com/<your-username>/FastMTT.git
+cd FastMTT
 ```
 
-# Basic usage
+No special installation is required apart from standard Python libraries (see `requirements.txt`).
 
-FastMTT has simple structure and is written in the FastMTT.py file only.
-Moreover FastMTT is written as separate python class called FastMTT and to start using it, one have to make an instance of this class:
+## Usage
 
- ```python
+Basic usage in Python:
+```
 import FastMTT
 
 fMTT = FastMTT.FastMTT()
- ```
-
-The function responsible for communication with the program is .run and one can use the programm with:
-```python
 fMTT.run(measuredTauLeptons, measuredMETx, measuredMETy, covMET)
-```
 
-Then importing the results is made with .mass component:
-
-```python
 masses = fMTT.mass
 ```
 
@@ -60,80 +55,19 @@ lepton[5]: hadron decay mode (-1 for non-hadrons)
 
 For the output one will obtain one array of the size (N,), containing estimated invariant masses.
 
-For another outpyts one can also get the reconstructed pT of the Higgs/Z and the momenta of reconstructed taons with:
+## Quick Start
 
-```python
-ptFast = fMTT.pt
-p4_fast_1 = fMTT.tau1P4
-p4_fast_2 = fMTT.tau2P4
+Minimal examples are contained in the batch_processing.py and visualisation.py:
+
+```
+python3 examples/batch_processing.py examples/example_data.csv
+python3 examples/visualisation.py examples/example_data.csv
 ```
 
-However one should be carefull, as the resolutions of these results are not perfect -- FastMTT was mainly invented for fast mass reconstruction.
+visualisation.py will produce example histograms of reconstructed mass and pt resolution, that will be stored in the ./images directory.
 
-# Batching system
+batch_processing.py will calculate batch of events using multiprocessing regime.
 
-We prepared additional function, that divide input data into batches. The simple function process_FastMTT is located in FastMTT_utils.py.
+## Documentation
 
-This approach is recommended, especially for the number of events > 10 thousands (memory allocation is very big in these cases without batching).
-
-Additionally using it makes execution of the code faster -- probably due to the fact, that only the first batch is needed for highly-consuming memory allocation. Using batches allows for at least 2 times better time performance.
-
-Inputs: measuredTauLeptons, METx, METy, covMET (as in previous section). Optional -- batch_size (5 000 by default) and log_interval (1 by default, so the code will raport upon its progress with each batch).
-
-Outputs: mass, pT. Other can be added by hand in FastMTT_utlis.py file.
-
-# Additional User Interface components
-
-1) In case one want to see the likelihood of mass, one could plot it with the functions of FastMTT.
-To set it, one should set the value of parameter .WhichLikelihoodPlot. It contains the information which event (of the number of N) should be plotted and saved into images/fastMTT directory.
-
-Example usage:
-
-```python
-fMTT.WhichLikelihoodPlot = 5
-```
-
-WhichLikelihoodPlot = -1 means, that no image will be plotted and is a default option.
-
-2) In order to estimate event-by-event uncertainty, one can set:
-
-```python
-fMTT.CalculateUncertainties = True
-```
-
-It calculates the uncertainty of the mass by estimating the contour, in which there should be masses with the probability in 1 sigma interval (according to the chi^2 test). Then the masses are calculated for the contour and highest and lowest masses give the interval for 1 sigma uncertainty. Additional arbitrary factor is used to adjust the results for chi^2 test.
-
-The procedure produces long tails, but apart from that calculates uncertainties event by event quite ok ~ after some cuts results are aprox. Gaussian. It is also a bit time consuming -- doubles the time of calculation -- so it is disabled by default.
-
-3) There are set two mass constraints, similar to each other (both disabled by default):
-
-a) We modify the likelihood by the normal distribution, by setting:
-
-```python
-fMTT.myLikelihood.enable_mass_constraint = True
-```
-We set the standard deviation to be equal to 10GeV, as this value seems to bring the best pT resolution. However one should avoid using it in the case of searching for heavy resonances.
-
-b) Suggested by ICL team -- hard cut constraint on possible likelihood. To enable it one can set it and modify the range of window by:
-
-```python
-fMTT.myLikelihood.enable_window = True
-fMTT.myLikelihood.window = [123, 127]
-```
-
-Idea was already proved to improve the results in CP H->tau tau measurements, if used in proper way.
-
-# Likelihood components
-
-Likelihood.py contains is responsible for calculating likelihood for each point on the grid. These likelihood is crucial to the algorithm, as it is a basis for MLE method.
-
-(Detailed description of physical work will be provided probably when the article will be written)
-
-# Python wrapper
-
-One can also use old C++ code with python wrapper. Please visit https://github.com/SVfit/ClassicSVfit for detailed instructions.
-
-
-
-
-
+For full details on inputs, batching, additional options, and likelihood components, see USAGE.md.

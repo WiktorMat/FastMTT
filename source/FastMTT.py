@@ -1,12 +1,9 @@
-#import dask.array as np
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Ellipse
 import time
 from scipy.constants import physical_constants
 import os
 import Likelihood
-#from scipy.optimize import minimize
 
 ###Main reference: https://github.com/SVfit/ClassicSVfit/blob/fastMTT_2024/src/FastMTT.cc ###
 
@@ -35,12 +32,18 @@ class FastMTT:
         self.tau1P4 = 0.0
         self.tau2P4 = 0.0
         self.mass = 0.0
+        self.tau1pt = 0.0
+        self.tau2pt = 0.0
+
+        self.PrintTime = False
 
         #New component to calculate uncertainty
         #It produces long tails, but apart from that calculates uncertainties event by event quite ok ~ after some cuts results are aprox. Gaussian
         #A bit time consuming -- doubles the time of calculation -- so it is disabled by default
 
         self.CalculateUncertainties = calculate_uncertainties
+        self.min_masses = 0.0
+        self.max_masses = 0.0
         self.one_sigma = 0.0
 
         #Number of event for which likelihood plot will be shown.
@@ -51,8 +54,9 @@ class FastMTT:
     
     def run(self, measuredTauLeptons, measuredMETx, measuredMETy, covMET):
 
-        start_real_time = time.time()
-        start_cpu_time = time.process_time()
+        if self.PrintTime:
+            start_real_time = time.time()
+            start_cpu_time = time.process_time()
 
         ##############################################
                             #RUN
@@ -70,9 +74,6 @@ class FastMTT:
 
         self.p4_Lepton1 = self.get_p4(aLepton1)
         self.p4_Lepton2 = self.get_p4(aLepton2)
-
-        self.Lepton1 = self.p4_Lepton1
-        self.Lepton2 = self.p4_Lepton2
 
         aLepton1 = self.modify_lepton_mass(aLepton1)
         aLepton2 = self.modify_lepton_mass(aLepton2)
@@ -111,14 +112,15 @@ class FastMTT:
         ##############################################
 
         #Time calculation part:
-        end_real_time = time.time()
-        end_cpu_time = time.process_time()
-        
-        real_time_elapsed = end_real_time - start_real_time
-        cpu_time_elapsed = end_cpu_time - start_cpu_time
+        if self.PrintTime:
+            end_real_time = time.time()
+            end_cpu_time = time.process_time()
+            
+            real_time_elapsed = end_real_time - start_real_time
+            cpu_time_elapsed = end_cpu_time - start_cpu_time
 
-        print(f"Real time elapsed: {real_time_elapsed} seconds")
-        print(f"CPU time elapsed: {cpu_time_elapsed} seconds")
+            print(f"Real time elapsed: {real_time_elapsed} seconds")
+            print(f"CPU time elapsed: {cpu_time_elapsed} seconds")
     
     #lepton[0]: decay_type:
     #1 - TauToHad
@@ -254,7 +256,7 @@ class FastMTT:
         return img
 
 
-    def plot_likelihood(self, X1, X2, event_number=0, threshold=None):
+    def plot_likelihood(self, X1, X2, event_number=0, threshold=None, filepath = None):
         print("Threshold: ", threshold)
         nGridPoints = np.shape(X1)[0]
         lh_grid = self.lh[event_number, :].reshape(nGridPoints, nGridPoints)
@@ -273,8 +275,11 @@ class FastMTT:
                 'ytick.labelsize': 'xx-large'}
         plt.rcParams.update(params)
 
-        file_path = f"images/fastMTT/likelihood_{self.WhichLikelihoodPlot}_event.png"
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        if filepath == None:
+            file_path = f"images/fastMTT/likelihood_{self.WhichLikelihoodPlot}_event.png"
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        else:
+            file_path = filepath
         plt.savefig(file_path, format='png')
         plt.close()
 
