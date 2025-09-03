@@ -1,6 +1,6 @@
 # FastMTT
 
-Author: Wiktor Matyszkiewicz
+Author: Wiktor Matyszkiewicz, Artur Kalinowski
 Last update: 28.08.2025
 
 Following repository contains a python implementation of the FastMTT algorithm, used to reconstruct invariant mass of di-tau system at high speed (around 1s for 1000 events on modern computer). For C++ version refer to: https://github.com/SVfit/ClassicSVfit/tree/fastMTT_2024.
