@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 from scipy.stats import norm
+from pathlib import Path
 
 #Importing source code from FastMTT
 import sys
@@ -12,9 +13,9 @@ if fastmtt_path not in sys.path:
     sys.path.insert(0, fastmtt_path)
 
 import FastMTT
-from FastMTT_utils import load_input_file
+from FastMTT_IO import load_input_file
 
-def process_events_csv(measuredTauLeptons, measuredMETx, measuredMETy, covMET, Higgs_mass, Higgs_pt):
+def process_events(measuredTauLeptons, measuredMETx, measuredMETy, covMET, Higgs_mass, Higgs_pt):
 
     fMTT = FastMTT.FastMTT()
 
@@ -31,7 +32,7 @@ def process_events_csv(measuredTauLeptons, measuredMETx, measuredMETy, covMET, H
     fMTT.myLikelihood.enableLikelihoodComponents(window = False, mass_constraint = True)
 
     #For default set-up:
-    fMTT.myLikelihood.enableLikelihoodComponents(MET = True, mass = True, px = False, py = False, mass_constraint = False, window = False)
+    fMTT.myLikelihood.enableLikelihoodComponents(MET = True, mass = True, mass_constraint = False, window = False)
 
     print('Input shapes:', measuredTauLeptons.shape, measuredMETx.shape, measuredMETy.shape, covMET.shape)
     fMTT.run(measuredTauLeptons, measuredMETx, measuredMETy, covMET)
@@ -149,10 +150,25 @@ def uncertainty_test(Higgs_mass, fMTT):
     print(f"Masses in 3σ: {within_3sigma*100}%")
     #print(f"Chi^2 test: {chi_square}")
 
+def get_repo_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Processes data from a CSV file and prints the results.")
-    parser.add_argument("file_path", type=str, help="Path to the CSV file.")
+    parser = argparse.ArgumentParser(
+        description="Processes data from a CSV file and prints the results."
+    )
+    parser.add_argument(
+        "file_path",
+        nargs="?",
+        default="Higgs.csv",
+        help="Path to the CSV file (default: data/Higgs.csv)."
+    )
     args = parser.parse_args()
 
-    csv_data = load_input_file(args.file_path)
-    process_events_csv(**csv_data)
+    data_dir = get_repo_root() / "data"
+    file_path = data_dir / args.file_path
+
+    print(f"Using: {file_path}")
+
+    data = load_input_file(str(file_path))
+    process_events(**data)

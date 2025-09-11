@@ -1,13 +1,14 @@
 import numpy as np
 import sys
 import os
+from pathlib import Path
 
 # Add source folder to path
 fastmtt_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'source'))
 if fastmtt_path not in sys.path:
     sys.path.insert(0, fastmtt_path)
 
-from FastMTT_utils import load_input_file, process_FastMTT
+from FastMTT_IO import load_input_file, process_FastMTT
 
 
 def run_fastmtt(file_path):
@@ -20,7 +21,7 @@ def run_fastmtt(file_path):
     ]
 
     # Load data
-    parsed = load_input_file(file_path, tree_name=tree_name, branches=branches)
+    parsed = load_input_file(str(file_path), tree_name=tree_name, branches=branches)
 
     measuredTauLeptons = parsed["measuredTauLeptons"]
     METx = parsed["measuredMETx"]
@@ -36,17 +37,25 @@ def run_fastmtt(file_path):
         num_workers=8
     )
 
-    print("Output shape:", mFast.shape, ptFast.shape)
-    print("Output means:", np.mean(mFast), np.mean(ptFast))
+    print("---Output shape---\nmass: ", mFast.shape, "\npT: ", ptFast.shape)
+    print("---Output means---\nmass: ", np.mean(mFast), "\npT: ", np.mean(ptFast))
 
 
 def main():
-    if len(sys.argv) < 2:
-        print(f"Usage: python {sys.argv[0]} <input_file.root|input_file.csv>")
-        sys.exit(1)
+    repo_root = Path(__file__).resolve().parent.parent
+    data_dir = repo_root / "data"
 
-    file_path = sys.argv[1]
-    run_fastmtt(file_path)
+    if len(sys.argv) < 2:
+        file_path = data_dir / "Higgs.csv" 
+        print(f"No input provided. Using default: {file_path}")
+    else:
+        arg_path = Path(sys.argv[1])
+        if not arg_path.is_absolute():
+            file_path = data_dir / arg_path
+        else:
+            file_path = arg_path
+
+    run_fastmtt(str(file_path))
 
 
 if __name__ == "__main__":

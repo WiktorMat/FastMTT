@@ -1,7 +1,7 @@
 # FastMTT
 
 Author: Wiktor Matyszkiewicz, Artur Kalinowski
-Last update: 28.08.2025
+Last update: 11.09.2025
 
 Following repository contains a python implementation of the FastMTT algorithm, used to reconstruct invariant mass of di-tau system at high speed (around 1s for 1000 events on modern computer). For C++ version refer to: https://github.com/SVfit/ClassicSVfit/tree/fastMTT_2024.
 
@@ -57,11 +57,11 @@ For the output one will obtain one array of the size (N,), containing estimated 
 
 ## Quick Start
 
-Minimal examples are contained in the batch_processing.py and visualisation.py:
+Minimal examples are contained in the batch_processing.py and visualisation.py. You can either run them without providing a file path (they will choose data/Higgs.csv by default) or specify any file from /data directory, e.g:
 
 ```
-python3 examples/batch_processing.py examples/example_data.csv
-python3 examples/visualisation.py examples/example_data.csv
+python3 examples/batch_processing.py Z0.csv
+python3 examples/visualisation.py Z0.csv
 ```
 
 visualisation.py will produce example histograms of reconstructed mass and pt resolution, that will be stored in the ./images directory.

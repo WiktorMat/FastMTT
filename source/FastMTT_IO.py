@@ -24,7 +24,7 @@ def process_batches_for_worker(args):
         results.append((global_fMTT.mass, global_fMTT.pt, global_fMTT.tau1pt, global_fMTT.tau2pt))
     return results
 
-def process_FastMTT(measuredTauLeptons, xMETs, yMETs, covMETs, batch_size=5_000, num_workers=4):
+def process_FastMTT(measuredTauLeptons, xMETs, yMETs, covMETs, batch_size=100, num_workers=4):
     num_total = len(measuredTauLeptons)
     num_batches = int(np.ceil(num_total / batch_size))
     
@@ -93,7 +93,7 @@ def load_root_events(file_path, tree_name, branches, entry_stop=None):
 
 def load_events_csv(csv_data):
 
-    df = pd.read_csv(csv_data, nrows = 1000)
+    df = pd.read_csv(csv_data)
 
     event_df = df[['H.m', 'H.pt', 'METx', 'METy', 'covXX', 'covXY', 'covYY', 'dm1', 'pt1', 'eta1', 'phi1', 'mass1', 'type1', 'dm2', 'pt2', 'eta2', 'phi2', 'mass2', 'type2']].copy()
 
