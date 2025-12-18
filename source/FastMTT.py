@@ -138,7 +138,7 @@ class FastMTT:
         px = lepton[:, 1] * np.cos(lepton[:, 3])
         py = lepton[:, 1] * np.sin(lepton[:, 3])
         pz = lepton[:, 1] * np.sinh(lepton[:, 2])
-        energy = np.sqrt(p**2 + lepton[:, 4])
+        energy = np.sqrt(p**2 + lepton[:, 4]**2)
         return np.array([px, py, pz, energy]).T
     
     def modify_lepton_mass(self, aLepton1, electron_mass=ElectronMass, muon_mass=MuonMass, pion_mass=ChargedPionMass):
@@ -290,7 +290,7 @@ class FastMTT:
         mass = InvariantMass(bestP4)
         return mass
     
-    def contour_uncertainties(self, X1, X2, chi_square = 2.3):
+    def contour_uncertainties(self, X1, X2, chi_square = 2.3, calibration_constant = 1.96):
         threshold = self.BestLikelihood/np.exp(chi_square/2)
 
         nGridPoints = np.shape(X1)[0]
@@ -311,4 +311,4 @@ class FastMTT:
         self.max_masses = np.nanmax(masses, axis=(1, 2))
         self.min_masses = np.nanmin(masses, axis=(1, 2))
 
-        self.one_sigma = (self.max_masses - self.min_masses)/2
+        self.one_sigma = (self.max_masses - self.min_masses)/2 * calibration_constant

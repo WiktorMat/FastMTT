@@ -37,9 +37,13 @@ def process_events(measuredTauLeptons, measuredMETx, measuredMETy, covMET, Higgs
     print('Input shapes:', measuredTauLeptons.shape, measuredMETx.shape, measuredMETy.shape, covMET.shape)
     fMTT.run(measuredTauLeptons, measuredMETx, measuredMETy, covMET)
     mFast = fMTT.mass
+    mask = mFast < 300
+    mFast = mFast[mask]
+    Higgs_mass = Higgs_mass[mask]
     print(mFast.shape)
 
     fastMTT_one_sigma = fMTT.one_sigma
+    fastMTT_one_sigma = fastMTT_one_sigma[mask]
     ptFast = fMTT.pt
     print("FastMTT mass mean:", np.mean(mFast))
     print("FastMTT mass 1 sigma:", np.mean(fastMTT_one_sigma))
@@ -65,7 +69,7 @@ def process_events(measuredTauLeptons, measuredMETx, measuredMETy, covMET, Higgs
     Higgs_plot(mFast)
     pT_resolution_plot(ptFast, Higgs_pt)
 
-    uncertainty_test(Higgs_mass, fMTT)
+    uncertainty_test(Higgs_mass, mFast, fastMTT_one_sigma)
 
 def Higgs_plot(mFast, output_path = 'images/fastMTT/fastMTT_masses.png'):
 
@@ -127,9 +131,9 @@ def pT_resolution_plot(ptFast, Higgs_pt, output_path = 'images/fastMTT/fastMTT_p
 
     print(f"Histogram was saved to {output_path}")
 
-def uncertainty_test(Higgs_mass, fMTT):
+def uncertainty_test(Higgs_mass, mFast, one_sigma):
 
-    deviations = np.absolute((fMTT.mass - Higgs_mass)) /(fMTT.one_sigma+0.001)
+    deviations = np.absolute((mFast - Higgs_mass)) /(one_sigma+0.001)
     
     xmin, xmax = -10, 10
 
