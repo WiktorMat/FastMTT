@@ -67,7 +67,7 @@ class Likelihood:
     def setWindow(self, window):
         self.window = window
 
-    def enableLikelihoodComponents(self, MET = None, mass = None, mass_constraint = None, window = None):  #All Boolean
+    def enableLikelihoodComponents(self, MET = None, mass = None, mass_constraint = None, window = None, phi2 = None):  #All Boolean
         if MET is not None:
             self.enable_MET = MET
         if mass is not None:
