@@ -8,14 +8,16 @@ import pandas as pd
 # Globalna instancja dla każdego procesu
 global_fMTT = None  
 
-def init_worker():
-    #One FastMTT object for each core
+def init_worker(window=False):
+    # One FastMTT object for each core
     global global_fMTT
     global_fMTT = FastMTT.FastMTT()
+    # Configure likelihood components per worker
+    global_fMTT.myLikelihood.enableLikelihoodComponents(window=window)
 
 def process_batches_for_worker(args):
     worker_id, worker_batches = args
-    #Each core processes its own batches
+    # Each core processes its own batches
     global global_fMTT
     results = []
     for batch_data in worker_batches:
@@ -24,32 +26,58 @@ def process_batches_for_worker(args):
         results.append((global_fMTT.mass, global_fMTT.pt, global_fMTT.tau1pt, global_fMTT.tau2pt))
     return results
 
-def process_FastMTT(measuredTauLeptons, xMETs, yMETs, covMETs, batch_size=100, num_workers=4):
+
+def process_single_batch(args):
+    batch_id, measuredTau, METx, METy, covMET = args
+    global global_fMTT
+    global_fMTT.run(measuredTau, METx, METy, covMET)
+    return batch_id, (global_fMTT.mass, global_fMTT.pt, global_fMTT.tau1pt, global_fMTT.tau2pt)
+
+def process_FastMTT(measuredTauLeptons, xMETs, yMETs, covMETs, batch_size=100, num_workers=4, window=False):
     num_total = len(measuredTauLeptons)
     num_batches = int(np.ceil(num_total / batch_size))
-    
-    # Split to cores
-    worker_data_splits = np.array_split(range(num_total), num_workers)
-    worker_batches = []
-    
-    for worker_id, worker_indices in enumerate(worker_data_splits):
-        batches = [
-            (measuredTauLeptons[idxs],
-            xMETs[idxs],
-            yMETs[idxs],
-            covMETs[idxs])
-            for idxs in np.array_split(worker_indices, int(np.ceil(len(worker_indices) / batch_size)))
-        ]
-        worker_batches.append((worker_id, batches))
+
+    if num_total == 0:
+        return (
+            np.empty((0,), dtype=np.float32),
+            np.empty((0,), dtype=np.float32),
+            np.empty((0,), dtype=np.float32),
+            np.empty((0,), dtype=np.float32),
+        )
+
+    print(
+        f"FastMTT: n_events={num_total}, batch_size={batch_size}, n_batches={num_batches}, "
+        f"workers={num_workers}, window={window}"
+    )
+
+    # Build batch payloads (batch_id keeps original ordering)
+    batch_args = []
+    for batch_id, start in enumerate(range(0, num_total, batch_size)):
+        stop = min(start + batch_size, num_total)
+        batch_args.append(
+            (
+                batch_id,
+                measuredTauLeptons[start:stop],
+                xMETs[start:stop],
+                yMETs[start:stop],
+                covMETs[start:stop],
+            )
+        )
     
     start_time = time.time()
     
-    # Multiprocessing
-    with mp.Pool(processes=num_workers, initializer=init_worker) as pool:
-        results = pool.map(process_batches_for_worker, worker_batches)
-    
-    # Calculating results
-    mFast, ptFast, tau1pt, tau2pt = zip(*[item for sublist in results for item in sublist])
+    # Multiprocessing: process per-batch so the parent can report progress.
+    results_by_batch = [None] * num_batches
+    processed = 0
+    with mp.Pool(processes=num_workers, initializer=init_worker, initargs=(window,)) as pool:
+        for batch_id, out in pool.imap_unordered(process_single_batch, batch_args, chunksize=1):
+            results_by_batch[batch_id] = out
+            # out[0] is mass array for this batch
+            processed += len(out[0])
+            print(f"  processed {processed}/{num_total} events (batch {batch_id + 1}/{num_batches})")
+
+    # Concatenate in the correct original order
+    mFast, ptFast, tau1pt, tau2pt = zip(*results_by_batch)
     
     end_time = time.time()
     print(f"Processing FastMTT took {end_time - start_time:.2f} seconds")
